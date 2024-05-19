@@ -8,7 +8,7 @@ WORKDIR /app
 COPY cloudflare_ddns.py .
 
 # Instala las dependencias necesarias
-RUN pip install requests
+RUN sh -c "pip install requests"
 
 # Comando para ejecutar el script
 CMD ["python", "cloudflare_ddns.py"]
