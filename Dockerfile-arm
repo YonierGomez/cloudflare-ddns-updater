@@ -1,8 +1,5 @@
-# Usa la imagen base de Python 3.12 en Alpine para ARM
+# Usa la imagen base de Python 3.12 en Alpine
 FROM arm64v8/python:3.12-alpine
-
-# Instala pip
-RUN apk add --no-cache py3-pip
 
 # Establece el directorio de trabajo
 WORKDIR /app
