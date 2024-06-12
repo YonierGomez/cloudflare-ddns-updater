@@ -1,5 +1,5 @@
 # Usa la imagen base de Python 3.12 en Alpine
-FROM python:3.12-alpine
+FROM python:alpine
 
 # Establece el directorio de trabajo
 WORKDIR /app
