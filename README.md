@@ -31,7 +31,7 @@ El script utiliza las siguientes variables de entorno para su configuración:
 | `-e CLOUDFLARE_EMAIL`     | Tu correo electrónico asociado a la cuenta de Cloudflare. |
 | `-e CLOUDFLARE_API_TOKEN` | El token de API de Cloudflare con los permisos necesarios. |
 | `-e ZONE_ID`  | El ID de la zona de Cloudflare donde se encuentra el registro DNS. |
-| `-e DNS_RECORD_NAME`      | El nombre del registro DNS que se actualizará (por ejemplo, `ddns.yonier.com`). |
+| `-e DNS_RECORD_NAME`      | El nombre del registro DNS que se actualizará, puede usar multiples (por ejemplo, `ddns.yonier.com, lab.yonier.com, test.yonier.com`). |
 | `-e SLEEP_INTERVAL`      | Intervalo de tiempo en segundos entre cada verificación de la IP (predeterminado: `600`). |
 
 
@@ -45,7 +45,7 @@ Fichero compose.yaml
 version: '3.8'
 services:
   cloudflare-ddns-updater:
-    image: cloudflare-ddns-updater
+    image: neytor/cloudflare-ddns-updater
     restart: always
     environment:
       - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
@@ -68,7 +68,7 @@ docker run -d \
   -e ZONE_ID=tu_zone_id \
   -e DNS_RECORD_NAME=subdominio.dominio.com \
   -e SLEEP_INTERVAL=600 \
-  cloudflare-ddns-updater
+  neytor/cloudflare-ddns-updater
 ```
 
 #### Environment variables desde archivo (Docker secrets)
@@ -81,7 +81,7 @@ fichero oculto .variables.env
 CLOUDFLARE_EMAIL=miemail@ejemplo.com
 CLOUDFLARE_API_TOKEN=miTokenDeApi
 ZONE_ID=miZoneId
-DNS_RECORD_NAME=subdominio.ejemplo.com
+DNS_RECORD_NAME=subdominio.ejemplo.com, test.ejemplo.com
 SLEEP_INTERVAL=300
 ```
 
@@ -91,7 +91,7 @@ Crear contenedor docker-compose
 version: '3.8'
 services:
   cloudflare-ddns-updater:
-    image: cloudflare-ddns-updater
+    image: neytor/cloudflare-ddns-updater
     restart: always
     env_file:
       - variables.env
@@ -103,7 +103,7 @@ Crear contenedor docker cli
 docker run -d \
   --name cloudflare-ddns-updater \
   --env-file variables.env \
-  cloudflare-ddns-updater
+  neytor/cloudflare-ddns-updater
 ```
 
 ## Arquitectura soportada
@@ -124,17 +124,17 @@ Solo cambia la versión de la imagen por la arquitectura soportada.
 Si desea ejecutar el código de manera manual es decir sin usar docker, puede crear un fichero con extensión .py y ejecutar el código reemplazando los campos correspondientes
 
 ```python
+import os
 import requests
 import json
+import time
 
-# Tu dirección de correo electrónico de Cloudflare
-CLOUDFLARE_EMAIL = 'ddns@gmail.com'
-# Tu token de API de Cloudflare
-CLOUDFLARE_API_TOKEN = 'xxxxx'
-# El ID de la zona de Cloudflare (puedes encontrarlo en el panel de Cloudflare)
-ZONE_ID = 'xxxxxxxxx'
-# El nombre del registro DNS que deseas actualizar (por ejemplo, 'subdominio.dominio.com')
-DNS_RECORD_NAME = 'subdominio.dominio.com'
+# Obtener variables de entorno
+CLOUDFLARE_EMAIL = os.getenv('CLOUDFLARE_EMAIL')
+CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')
+ZONE_ID = os.getenv('ZONE_ID')
+DNS_RECORD_NAMES = os.getenv('DNS_RECORD_NAME').split(',')
+SLEEP_INTERVAL = int(os.getenv('SLEEP_INTERVAL', 600))  # Valor predeterminado de 600 segundos
 
 def get_public_ip():
     """Obtiene la IP pública del servidor."""
@@ -179,20 +179,37 @@ def update_dns_record(zone_id, record_id, record_name, ip):
     return response.json()
 
 def main():
-    # Obtener la IP pública actual
-    current_ip = get_public_ip()
-    print(f'IP pública actual: {current_ip}')
+    current_ip = None
+    record_ids = {}
 
-    # Obtener el ID del registro DNS basado en el nombre
-    try:
-        record_id = get_dns_record_id(ZONE_ID, DNS_RECORD_NAME)
-        print(f'ID del registro DNS: {record_id}')
-        
-        # Actualizar el registro DNS en Cloudflare
-        result = update_dns_record(ZONE_ID, record_id, DNS_RECORD_NAME, current_ip)
-        print('Respuesta de la API de Cloudflare:', result)
-    except Exception as e:
-        print(f'Error: {e}')
+    while True:
+        try:
+            new_ip = get_public_ip()
+            if new_ip != current_ip:
+                print(f'Nueva IP detectada: {new_ip}')
+                
+                for record_name in DNS_RECORD_NAMES:
+                    # Obtener el ID del registro DNS basado en el nombre, solo la primera vez o si falla
+                    if record_name not in record_ids:
+                        record_ids[record_name] = get_dns_record_id(ZONE_ID, record_name.strip())
+                        print(f'ID del registro DNS para {record_name}: {record_ids[record_name]}')
+
+                    # Actualizar el registro DNS en Cloudflare
+                    result = update_dns_record(ZONE_ID, record_ids[record_name], record_name.strip(), new_ip)
+                    print(f'Respuesta de la API de Cloudflare para {record_name}:', result)
+
+                # Actualizar la IP almacenada
+                current_ip = new_ip
+
+            else:
+                print('La IP no ha cambiado.')
+
+            # Espera antes de la próxima verificación
+            time.sleep(SLEEP_INTERVAL)  # Usar el intervalo de espera configurado
+
+        except Exception as e:
+            print(f'Error: {e}')
+            time.sleep(SLEEP_INTERVAL)  # Espera antes de intentar nuevamente en caso de error
 
 if __name__ == "__main__":
     main()
