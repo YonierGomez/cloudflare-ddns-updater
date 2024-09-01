@@ -44,7 +44,7 @@ def get_dns_record_id(zone_id, record_name):
         log_message(f"Error: No se encontró el registro DNS con el nombre {record_name}")
         raise Exception(f"No se encontró el registro DNS con el nombre {record_name}")
 
-def update_dns_record(zone_id, record_id, record_name, ip, proxied=True):
+def update_dns_record(zone_id, record_id, record_name, ip, proxied):
     """Actualiza el registro DNS en Cloudflare."""
     log_message(f"Actualizando registro DNS {record_name} con IP {ip}...")
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}"
@@ -85,7 +85,10 @@ def main():
                     if record_name not in record_ids:
                         record_ids[record_name] = get_dns_record_id(ZONE_ID, record_name)
                     
-                    result = update_dns_record(ZONE_ID, record_ids[record_name], record_name, new_ip, proxied=PROXY_ENABLED)
+                    # Determinar si el proxy debe estar habilitado para el registro actual
+                    proxied = PROXY_ENABLED if record_name != 'vpn.yonier.com' else False
+                    
+                    result = update_dns_record(ZONE_ID, record_ids[record_name], record_name, new_ip, proxied=proxied)
                     if result['success']:
                         log_message(f"Actualización exitosa para {record_name}")
                     else:
