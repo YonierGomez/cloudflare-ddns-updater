@@ -1,4 +1,4 @@
-name: Docker Image CI ARM - Emby Server
+name: Docker Image CI ARM - cloudflare-ddns-updater arm
 
 on:
   workflow_dispatch: # Agrega esta entrada para habilitar la ejecución manual
