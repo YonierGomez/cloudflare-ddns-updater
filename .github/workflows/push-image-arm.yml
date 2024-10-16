@@ -8,7 +8,7 @@ jobs:
 
   build_push_image:
 
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
     - uses: actions/checkout@v4
@@ -24,5 +24,6 @@ jobs:
     
     - name: Build and push the Docker image latest
       run: |
-        docker build . --file Dockerfile --tag neytor/cloudflare-ddns-updater && 
-        docker image ls && docker push neytor/cloudflare-ddns-updater
+        docker build . --file Dockerfile-arm --tag neytor/cloudflare-ddns-updater:arm && 
+        docker image ls && docker push neytor/cloudflare-ddns-updater:arm
+
