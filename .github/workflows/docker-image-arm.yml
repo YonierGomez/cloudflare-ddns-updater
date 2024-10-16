@@ -24,6 +24,6 @@ jobs:
     
     - name: Build and push the Docker image latest
       run: |
-        docker build . --file Dockerfile-arm --tag neytor/cloudflare-ddns-updater:arm && 
+        docker build . --file Dockerfile --tag neytor/cloudflare-ddns-updater:arm && 
         docker image ls && docker push neytor/cloudflare-ddns-updater:arm
 
