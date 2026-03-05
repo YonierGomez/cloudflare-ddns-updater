@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudflare DDNS Updater</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #f97316;
+      --accent2: #3b82f6;
+      --code-bg: #0d1117;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .hero {
+      text-align: center;
+      padding: 5rem 1.5rem 3rem;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+    }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero p {
+      color: var(--muted);
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0.5rem auto 2rem;
+    }
+    .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+    .badges img { height: 24px; }
+
+    .container { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+
+    section { padding: 3rem 0; }
+    section h2 {
+      font-size: 1.6rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.2rem;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+    }
+    .feature .icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .feature h3 { font-size: 1.1rem; margin-bottom: 0.4rem; }
+    .feature p { color: var(--muted); font-size: 0.9rem; }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 1rem 0;
+    }
+    code { font-family: 'SF Mono', 'Fira Code', monospace; color: #e2e8f0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.7rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+
+    .env-table code {
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>☁️ Cloudflare <span>DDNS</span> Updater</h1>
+  <p>Contenedor Docker multi-arquitectura que mantiene tus registros DNS de Cloudflare sincronizados con tu IP pública. Automático, ligero y listo para correr.</p>
+  <div class="badges">
+    <img src="https://img.shields.io/docker/pulls/neytor/cloudflare-ddns-updater?style=flat-square&color=f97316" alt="Docker Pulls">
+    <img src="https://img.shields.io/docker/image-size/neytor/cloudflare-ddns-updater/latest?style=flat-square&color=3b82f6" alt="Image Size">
+    <img src="https://img.shields.io/github/v/release/neytor/cloudflare-ddns-updater?style=flat-square&color=10b981" alt="Latest Release">
+  </div>
+</div>
+
+<div class="container">
+
+  <section>
+    <h2>Características</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">🏗️</div>
+        <h3>Multi-Arquitectura</h3>
+        <p>Corre en amd64, arm64 y armv7. Perfecto para servidores, Raspberry Pi o Apple Silicon.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🔄</div>
+        <h3>Actualización automática</h3>
+        <p>Detecta cambios de IP y actualiza tus registros DNS en Cloudflare automáticamente.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📋</div>
+        <h3>Múltiples dominios</h3>
+        <p>Actualiza varios registros DNS a la vez separándolos por comas.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🛡️</div>
+        <h3>Proxy configurable</h3>
+        <p>Activa o desactiva el proxy de Cloudflare por dominio según tu necesidad.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">🐍</div>
+        <h3>Python + Alpine</h3>
+        <p>Imagen mínima basada en Python Alpine. Ligera y con releases automáticos.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📦</div>
+        <h3>Auto-Release</h3>
+        <p>Pipeline CI/CD que detecta nuevas versiones de Python y publica releases con changelog.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Inicio rápido</h2>
+    <pre><code>docker run -d \
+  --name cloudflare-ddns \
+  --restart unless-stopped \
+  -e CLOUDFLARE_EMAIL="tu@email.com" \
+  -e CLOUDFLARE_API_TOKEN="tu-api-token" \
+  -e ZONE_ID="tu-zone-id" \
+  -e DNS_RECORD_NAME="ejemplo.com,sub.ejemplo.com" \
+  -e SLEEP_INTERVAL=300 \
+  -e PROXY_ENABLED=true \
+  neytor/cloudflare-ddns-updater:latest</code></pre>
+  </section>
+
+  <section>
+    <h2>Docker Compose</h2>
+    <pre><code>services:
+  cloudflare-ddns:
+    image: neytor/cloudflare-ddns-updater:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
+    environment:
+      CLOUDFLARE_EMAIL: "tu@email.com"
+      CLOUDFLARE_API_TOKEN: "tu-api-token"
+      ZONE_ID: "tu-zone-id"
+      DNS_RECORD_NAME: "ejemplo.com,sub.ejemplo.com"
+      SLEEP_INTERVAL: "300"
+      PROXY_ENABLED: "true"</code></pre>
+  </section>
+
+  <section>
+    <h2>Variables de entorno</h2>
+    <div class="env-table">
+      <table>
+        <thead>
+          <tr><th>Variable</th><th>Descripción</th><th>Default</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>CLOUDFLARE_EMAIL</code></td><td>Email de tu cuenta Cloudflare</td><td>—</td></tr>
+          <tr><td><code>CLOUDFLARE_API_TOKEN</code></td><td>API Key o Token de Cloudflare</td><td>—</td></tr>
+          <tr><td><code>ZONE_ID</code></td><td>Zone ID del dominio en Cloudflare</td><td>—</td></tr>
+          <tr><td><code>DNS_RECORD_NAME</code></td><td>Registros DNS separados por coma</td><td>—</td></tr>
+          <tr><td><code>SLEEP_INTERVAL</code></td><td>Segundos entre verificaciones</td><td><code>600</code></td></tr>
+          <tr><td><code>PROXY_ENABLED</code></td><td>Activar proxy de Cloudflare</td><td><code>true</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Arquitecturas soportadas</h2>
+    <table>
+      <thead>
+        <tr><th>Arquitectura</th><th>Plataforma</th><th>Ejemplos</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>amd64</td><td>linux/amd64</td><td>Servidores, PCs, VPS</td></tr>
+        <tr><td>arm64</td><td>linux/arm64</td><td>Raspberry Pi 4+, Apple Silicon</td></tr>
+        <tr><td>armv7</td><td>linux/arm/v7</td><td>Raspberry Pi 2, Pi 3</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</div>
+
+<footer>
+  <p>
+    <a href="https://github.com/neytor/cloudflare-ddns-updater">GitHub</a> ·
+    <a href="https://hub.docker.com/r/neytor/cloudflare-ddns-updater">Docker Hub</a>
+  </p>
+</footer>
+
+</body>
+</html>

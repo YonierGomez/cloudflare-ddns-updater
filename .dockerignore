@@ -1,0 +1,7 @@
+README.md
+.git
+.github
+.kiro
+Dockerfile
+.dockerignore
+*.md
