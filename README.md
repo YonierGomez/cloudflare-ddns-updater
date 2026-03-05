@@ -1,20 +1,40 @@
-Actualizar registro DNS de Cloudflare - DDNS
-======================
+<p align="center">
+  <img src="https://cdn.simpleicons.org/cloudflare/F38020" width="80" alt="Cloudflare">
+</p>
 
-## Referencia rápida
+<h1 align="center">Cloudflare DDNS Updater</h1>
 
--	**Cloudflare DDNS Updater**
--	**Requisitos**
--	**Variables de Entorno**
--	**Uso**
--	**Environment variables desde archivo (Docker secrets)**
--	**Arquitectura soportada**
--	**Uso en raspberry**
--	**Te invito a visitar mi portafolio**
+<p align="center">
+  Contenedor Docker multi-arquitectura que mantiene tus registros DNS de Cloudflare sincronizados con tu IP pública.
+</p>
 
-# Cloudflare DDNS Updater
+<p align="center">
+  <a href="https://github.com/YonierGomez/cloudflare-ddns-updater/stargazers"><img src="https://img.shields.io/github/stars/YonierGomez/cloudflare-ddns-updater?style=flat-square&color=f97316" alt="Stars"></a>
+  <a href="https://github.com/YonierGomez/cloudflare-ddns-updater/issues"><img src="https://img.shields.io/github/issues/YonierGomez/cloudflare-ddns-updater?style=flat-square&color=ef4444" alt="Issues"></a>
+  <a href="https://github.com/YonierGomez/cloudflare-ddns-updater/releases"><img src="https://img.shields.io/github/v/release/YonierGomez/cloudflare-ddns-updater?style=flat-square&color=10b981" alt="Release"></a>
+  <a href="https://hub.docker.com/r/neytor/cloudflare-ddns-updater"><img src="https://img.shields.io/docker/pulls/neytor/cloudflare-ddns-updater?style=flat-square&color=2563eb" alt="Docker Pulls"></a>
+  <a href="https://hub.docker.com/r/neytor/cloudflare-ddns-updater"><img src="https://img.shields.io/docker/image-size/neytor/cloudflare-ddns-updater/latest?style=flat-square&color=8b5cf6" alt="Image Size"></a>
+</p>
 
-Este proyecto proporciona un script en Python que actualiza automáticamente el registro DNS de Cloudflare con la IP pública actual del servidor. Esto es útil para configurar un Dynamic DNS (DDNS).
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Cloudflare-F38020?style=flat-square&logo=cloudflare&logoColor=white" alt="Cloudflare">
+  <img src="https://img.shields.io/badge/Alpine_Linux-0D597F?style=flat-square&logo=alpinelinux&logoColor=white" alt="Alpine">
+  <img src="https://img.shields.io/badge/GitHub_Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white" alt="GitHub Actions">
+</p>
+
+---
+
+## Arquitecturas soportadas
+
+| Arquitectura | Plataforma | Dispositivos |
+|---|---|---|
+| amd64 | linux/amd64 | Servidores, PCs, VPS |
+| arm64 | linux/arm64 | Raspberry Pi 4, Raspberry Pi 5, Orange Pi, Apple Silicon |
+| armv7 | linux/arm/v7 | Raspberry Pi 2, Raspberry Pi 3, Orange Pi Zero/One |
+
+> Compatible con cualquier placa ARM: Raspberry Pi, Orange Pi, Banana Pi, Rock Pi, ODROID, etc.
 
 ## Requisitos
 
@@ -22,204 +42,91 @@ Este proyecto proporciona un script en Python que actualiza automáticamente el 
 - Cuenta en Cloudflare
 - Token de API de Cloudflare con permisos para editar registros DNS
 
-## Variables de Entorno
+## Variables de entorno
 
-El script utiliza las siguientes variables de entorno para su configuración:
-
-| Variable      | Función                                                      |
-| ------------- | ------------------------------------------------------------ |
-| `-e CLOUDFLARE_EMAIL`     | Tu correo electrónico asociado a la cuenta de Cloudflare. |
-| `-e CLOUDFLARE_API_TOKEN` | El token de API de Cloudflare con los permisos necesarios. |
-| `-e ZONE_ID`  | El ID de la zona de Cloudflare donde se encuentra el registro DNS. |
-| `-e DNS_RECORD_NAME`      | El nombre del registro DNS que se actualizará, puede usar multiples (por ejemplo, `ddns.yonier.com, lab.yonier.com, test.yonier.com`). |
-| `-e SLEEP_INTERVAL`      | Intervalo de tiempo en segundos entre cada verificación de la IP (predeterminado: `600`). |
-
+| Variable | Descripción | Default |
+|---|---|---|
+| `CLOUDFLARE_EMAIL` | Email de tu cuenta Cloudflare | — |
+| `CLOUDFLARE_API_TOKEN` | API Key o Token de Cloudflare | — |
+| `ZONE_ID` | Zone ID del dominio en Cloudflare | — |
+| `DNS_RECORD_NAME` | Registros DNS separados por coma | — |
+| `SLEEP_INTERVAL` | Segundos entre verificaciones | `600` |
+| `PROXY_ENABLED` | Activar proxy de Cloudflare | `true` |
 
 ## Uso
 
-### docker-compose (recomendado)
-Fichero compose.yaml
+### Docker Compose (recomendado)
 
 ```yaml
----
-version: '3.8'
 services:
-  cloudflare-ddns-updater:
-    image: neytor/cloudflare-ddns-updater
-    restart: always
-    environment:
-      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      - ZONE_ID=${ZONE_ID}
-      - DNS_RECORD_NAME=${DNS_RECORD_NAME}
-      - SLEEP_INTERVAL=${SLEEP_INTERVAL}
+  cloudflare-ddns:
+    image: neytor/cloudflare-ddns-updater:latest
+    container_name: cloudflare-ddns
+    restart: unless-stopped
     env_file:
       - variables.env
-...
 ```
 
-### *. Construir la Imagen de Docker
+Fichero `variables.env`:
 
 ```bash
-docker run -d \
-  --name cloudflare-ddns-updater \
-  -e CLOUDFLARE_EMAIL=tu_correo_ejemplo@dominio.com \
-  -e CLOUDFLARE_API_TOKEN=tu_token_de_api \
-  -e ZONE_ID=tu_zone_id \
-  -e DNS_RECORD_NAME=subdominio.dominio.com \
-  -e SLEEP_INTERVAL=600 \
-  neytor/cloudflare-ddns-updater
-```
-
-#### Environment variables desde archivo (Docker secrets)
-
-Se recomienda pasar la variable `CLOUDFLARE_API_TOKEN` a través de un archivo.
-
-fichero oculto .variables.env
-
-```bash
-CLOUDFLARE_EMAIL=miemail@ejemplo.com
-CLOUDFLARE_API_TOKEN=miTokenDeApi
-ZONE_ID=miZoneId
-DNS_RECORD_NAME=subdominio.ejemplo.com, test.ejemplo.com
+CLOUDFLARE_EMAIL=tu@email.com
+CLOUDFLARE_API_TOKEN=tu-api-token
+ZONE_ID=tu-zone-id
+DNS_RECORD_NAME=ejemplo.com,sub.ejemplo.com
 SLEEP_INTERVAL=300
+PROXY_ENABLED=true
 ```
 
-Crear contenedor docker-compose
-```yaml
----
-version: '3.8'
-services:
-  cloudflare-ddns-updater:
-    image: neytor/cloudflare-ddns-updater
-    restart: always
-    env_file:
-      - variables.env
-...
-```
+### Docker CLI
 
-Crear contenedor docker cli
 ```bash
 docker run -d \
-  --name cloudflare-ddns-updater \
-  --env-file variables.env \
-  neytor/cloudflare-ddns-updater
+  --name cloudflare-ddns \
+  --restart unless-stopped \
+  -e CLOUDFLARE_EMAIL="tu@email.com" \
+  -e CLOUDFLARE_API_TOKEN="tu-api-token" \
+  -e ZONE_ID="tu-zone-id" \
+  -e DNS_RECORD_NAME="ejemplo.com,sub.ejemplo.com" \
+  -e SLEEP_INTERVAL=300 \
+  -e PROXY_ENABLED=true \
+  neytor/cloudflare-ddns-updater:latest
 ```
 
-## Arquitectura soportada
+### Raspberry Pi / Orange Pi / Placas ARM
 
-La arquitectura soportada es la siguiente:
+No necesitas hacer nada especial. La imagen es multi-arquitectura, Docker detecta automáticamente tu plataforma:
 
-| Arquitectura | Disponible | Tag descarga                 |
-| ------------ | ---------- | ---------------------------- |
-| x86-64       | ✅          | docker pull neytor/cloudflare-ddns-updater     |
-| arm64        | ✅          | docker pull neytor/cloudflare-ddns-updater:arm |
-
-## Uso en raspberry
-
-Solo cambia la versión de la imagen por la arquitectura soportada.
-
-## Uso manual
-
-Si desea ejecutar el código de manera manual es decir sin usar docker, puede crear un fichero con extensión .py y ejecutar el código reemplazando los campos correspondientes
-
-```python
-import os
-import requests
-import json
-import time
-
-# Obtener variables de entorno
-CLOUDFLARE_EMAIL = os.getenv('CLOUDFLARE_EMAIL')
-CLOUDFLARE_API_TOKEN = os.getenv('CLOUDFLARE_API_TOKEN')
-ZONE_ID = os.getenv('ZONE_ID')
-DNS_RECORD_NAMES = os.getenv('DNS_RECORD_NAME').split(',')
-SLEEP_INTERVAL = int(os.getenv('SLEEP_INTERVAL', 600))  # Valor predeterminado de 600 segundos
-
-def get_public_ip():
-    """Obtiene la IP pública del servidor."""
-    response = requests.get('https://api.ipify.org?format=json')
-    ip = response.json()['ip']
-    return ip
-
-def get_dns_record_id(zone_id, record_name):
-    """Obtiene el ID del registro DNS basado en su nombre."""
-    url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={record_name}"
-    headers = {
-        'X-Auth-Email': CLOUDFLARE_EMAIL,
-        'X-Auth-Key': CLOUDFLARE_API_TOKEN,
-        'Content-Type': 'application/json'
-    }
-
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    
-    if data['success'] and data['result']:
-        return data['result'][0]['id']
-    else:
-        raise Exception(f"No se encontró el registro DNS con el nombre {record_name}")
-
-def update_dns_record(zone_id, record_id, record_name, ip):
-    """Actualiza el registro DNS en Cloudflare."""
-    url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}"
-    headers = {
-        'X-Auth-Email': CLOUDFLARE_EMAIL,
-        'X-Auth-Key': CLOUDFLARE_API_TOKEN,
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'type': 'A',  # Tipo de registro, puede ser 'A' para IPv4 o 'AAAA' para IPv6
-        'name': record_name,
-        'content': ip,
-        'ttl': 1,  # Configuración del TTL (1 es automático)
-        'proxied': False  # Ajustar según sea necesario
-    }
-
-    response = requests.put(url, headers=headers, data=json.dumps(data))
-    return response.json()
-
-def main():
-    current_ip = None
-    record_ids = {}
-
-    while True:
-        try:
-            new_ip = get_public_ip()
-            if new_ip != current_ip:
-                print(f'Nueva IP detectada: {new_ip}')
-                
-                for record_name in DNS_RECORD_NAMES:
-                    # Obtener el ID del registro DNS basado en el nombre, solo la primera vez o si falla
-                    if record_name not in record_ids:
-                        record_ids[record_name] = get_dns_record_id(ZONE_ID, record_name.strip())
-                        print(f'ID del registro DNS para {record_name}: {record_ids[record_name]}')
-
-                    # Actualizar el registro DNS en Cloudflare
-                    result = update_dns_record(ZONE_ID, record_ids[record_name], record_name.strip(), new_ip)
-                    print(f'Respuesta de la API de Cloudflare para {record_name}:', result)
-
-                # Actualizar la IP almacenada
-                current_ip = new_ip
-
-            else:
-                print('La IP no ha cambiado.')
-
-            # Espera antes de la próxima verificación
-            time.sleep(SLEEP_INTERVAL)  # Usar el intervalo de espera configurado
-
-        except Exception as e:
-            print(f'Error: {e}')
-            time.sleep(SLEEP_INTERVAL)  # Espera antes de intentar nuevamente en caso de error
-
-if __name__ == "__main__":
-    main()
+```bash
+# Funciona igual en RPi 5, Orange Pi, o cualquier placa ARM
+docker pull neytor/cloudflare-ddns-updater:latest
 ```
-> Nota: Puedes crear un cron para que se ejecute el tiempo que desees. crontab -e y pasar */30 * * * * /ruta/al/script.sh 
-        con esto queremos decir que el script se ejecutará cada 30 minutos.
 
-## Te invito a visitar mi portafolio
-https://yonier.com
+## CI/CD
 
+Este proyecto usa GitHub Actions con:
 
-[![Try in PWD](https://github.com/play-with-docker/stacks/raw/cff22438cb4195ace27f9b15784bbb497047afa7/assets/images/button.png)](http://play-with-docker.com?stack=https://raw.githubusercontent.com/docker-library/docs/db214ae34137ab29c7574f5fbe01bc4eaea6da7e/wordpress/stack.yml)
+- **Auto-Release**: Detecta nuevas versiones de Python semanalmente, hace build multi-arch y crea un release con changelog
+- **PR Validation**: Valida que el Dockerfile compile para las 3 arquitecturas antes de mergear
 
+## Uso manual (sin Docker)
+
+Si prefieres ejecutar el script directamente:
+
+```bash
+pip install requests
+export CLOUDFLARE_EMAIL="tu@email.com"
+export CLOUDFLARE_API_TOKEN="tu-api-token"
+export ZONE_ID="tu-zone-id"
+export DNS_RECORD_NAME="ejemplo.com"
+python cloudflare_ddns.py
+```
+
+> También puedes usar cron: `*/30 * * * * /ruta/al/script.sh` para ejecutar cada 30 minutos.
+
+---
+
+<p align="center">
+  <a href="https://yonier.com">yonier.com</a> · 
+  <a href="https://hub.docker.com/r/neytor/cloudflare-ddns-updater">Docker Hub</a>
+</p>
