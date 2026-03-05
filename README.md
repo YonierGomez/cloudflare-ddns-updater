@@ -126,6 +126,17 @@ python cloudflare_ddns.py
 
 ---
 
+## Apoya el proyecto
+
+Si te resulta útil, considera apoyar el desarrollo:
+
+<p align="center">
+  <a href="https://buymeacoffee.com/yoniergomez"><img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me A Coffee"></a>
+  <a href="https://github.com/sponsors/YonierGomez"><img src="https://img.shields.io/badge/GitHub_Sponsors-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="GitHub Sponsors"></a>
+</p>
+
+---
+
 <p align="center">
   <a href="https://yonier.com">yonier.com</a> · 
   <a href="https://hub.docker.com/r/neytor/cloudflare-ddns-updater">Docker Hub</a>
