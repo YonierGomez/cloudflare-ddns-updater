@@ -1,20 +1,39 @@
-name: Docker Auto-Release Multi-Arch
+name: Docker Multi-Arch Auto-Release
 
 on:
   schedule:
-    - cron: '0 6 * * 1' # Cada lunes a las 6:00 UTC
+    - cron: '0 6 * * 1'  # Every Monday 06:00 UTC
   workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if Python version unchanged'
+        required: false
+        type: choice
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
+      skip_release:
+        description: 'Build and push Docker image but skip GitHub Release creation'
+        required: false
+        type: choice
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: write
 
 jobs:
-  check-and-release:
+  # ── Phase 1: detect whether a new Python version is available ─────────────────
+  check-version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.upstream.outputs.version }}
+      should_build: ${{ steps.compare.outputs.should_build }}
 
     steps:
-      - uses: actions/checkout@v6.0.2
-
       - name: Get upstream Python version
         id: upstream
         run: |
@@ -22,119 +41,184 @@ jobs:
           echo "version=$PYTHON_VERSION" >> "$GITHUB_OUTPUT"
           echo "Upstream Python version: $PYTHON_VERSION"
 
-      - name: Get latest repo release
-        id: current
+      - name: Get latest GitHub release tag
+        id: get_release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          LATEST=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "none")
-          echo "version=$LATEST" >> "$GITHUB_OUTPUT"
-          echo "Current release: $LATEST"
+          LATEST=$(gh release list \
+            --repo ${{ github.repository }} \
+            --limit 1 \
+            --json tagName \
+            --jq '.[0].tagName // ""')
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "Latest release: $LATEST"
 
-      - name: Compare versions
+      - name: Decide whether to build
         id: compare
         run: |
-          UPSTREAM="v${{ steps.upstream.outputs.version }}"
-          CURRENT="${{ steps.current.outputs.version }}"
-          if [ "$UPSTREAM" = "$CURRENT" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Versions match ($UPSTREAM), skipping."
+          CURRENT="v${{ steps.upstream.outputs.version }}"
+          LATEST="${{ steps.get_release.outputs.latest }}"
+          FORCE="${{ github.event.inputs.force_build }}"
+          if [[ "$CURRENT" != "$LATEST" || "$FORCE" == "true" ]]; then
+            echo "should_build=true"  >> "$GITHUB_OUTPUT"
+            echo "Build needed: current=$CURRENT, latest=$LATEST, force=$FORCE"
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "New version detected: $UPSTREAM (was $CURRENT)"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "No new version — skipping build."
           fi
 
-      - name: Set up QEMU
-        if: steps.compare.outputs.skip == 'false'
-        uses: docker/setup-qemu-action@v4.0.0
+  # ── Phase 2: build per-arch on native runners (no QEMU) ──────────────────────
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v6.0.2
 
       - name: Set up Docker Buildx
-        if: steps.compare.outputs.skip == 'false'
         uses: docker/setup-buildx-action@v4.0.0
 
       - name: Docker Login
-        if: steps.compare.outputs.skip == 'false'
         uses: docker/login-action@v4.0.0
         with:
           registry: docker.io
           username: ${{ secrets.USER_HUB }}
           password: ${{ secrets.PASS_HUB }}
 
-      - name: Build and push multi-arch
-        if: steps.compare.outputs.skip == 'false'
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v7.0.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: ${{ matrix.platform }}
           push: true
-          tags: |
-            neytor/cloudflare-ddns-updater:latest
-            neytor/cloudflare-ddns-updater:${{ steps.upstream.outputs.version }}
+          outputs: type=image,name=neytor/cloudflare-ddns-updater,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: digest-${{ matrix.runner }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Phase 3: merge digests into multi-arch manifest ──────────────────────────
+  build-and-push:
+    needs: [check-version, build]
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8.0.1
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.0.0
+
+      - name: Docker Login
+        uses: docker/login-action@v4.0.0
+        with:
+          registry: docker.io
+          username: ${{ secrets.USER_HUB }}
+          password: ${{ secrets.PASS_HUB }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          docker buildx imagetools create \
+            -t neytor/cloudflare-ddns-updater:latest \
+            -t neytor/cloudflare-ddns-updater:${VERSION} \
+            $(printf 'neytor/cloudflare-ddns-updater@sha256:%s ' $(ls /tmp/digests))
+
+  # ── Phase 4: GitHub Release with changelog ────────────────────────────────────
+  release:
+    needs: [check-version, build-and-push]
+    if: needs.check-version.outputs.should_build == 'true' && github.event.inputs.skip_release != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if release already exists
+        id: check_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTS=$(gh release view "v${{ needs.check-version.outputs.version }}" \
+            --repo ${{ github.repository }} 2>/dev/null && echo "true" || echo "false")
+          echo "exists=$EXISTS" >> "$GITHUB_OUTPUT"
 
       - name: Fetch upstream changelog
-        if: steps.compare.outputs.skip == 'false'
         id: changelog
         run: |
-          VERSION="${{ steps.upstream.outputs.version }}"
+          VERSION="${{ needs.check-version.outputs.version }}"
           MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
           CHANGELOG_URL="https://docs.python.org/release/${VERSION}/whatsnew/${MAJOR_MINOR}.html"
-
-          # Intentar obtener título de la página de novedades
           TITLE=$(curl -sL "$CHANGELOG_URL" | grep -oP '(?<=<title>).*?(?=</title>)' | head -1 || echo "")
-
           if [ -z "$TITLE" ]; then
-            NOTES="No se encontraron release notes específicas para Python ${VERSION}."
-            NOTES="${NOTES}\n\nConsulta: https://www.python.org/downloads/"
+            NOTES="See https://www.python.org/downloads/"
           else
-            NOTES="### Python ${VERSION}\n\n"
-            NOTES="${NOTES}📄 [Release notes completas](https://docs.python.org/release/${VERSION}/whatsnew/${MAJOR_MINOR}.html)\n"
-            NOTES="${NOTES}📦 [Descargas oficiales](https://www.python.org/downloads/release/python-${VERSION//./}/) "
+            NOTES="[Python ${VERSION} — What's New](https://docs.python.org/release/${VERSION}/whatsnew/${MAJOR_MINOR}.html)"
           fi
-
-          # Guardar en archivo para evitar problemas con caracteres especiales
-          echo -e "$NOTES" > /tmp/changelog.md
+          echo "$NOTES" > /tmp/changelog.md
+          echo "url=$CHANGELOG_URL" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        if: steps.compare.outputs.skip == 'false'
+        if: steps.check_release.outputs.exists == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.upstream.outputs.version }}"
+          VERSION="${{ needs.check-version.outputs.version }}"
           TAG="v${VERSION}"
+          NOTES=$(cat /tmp/changelog.md)
 
-          cat > /tmp/release_body.md << 'HEADER'
-          ## 🐳 cloudflare-ddns-updater
+          cat > /tmp/release-notes.md << NOTES
+          ## cloudflare-ddns-updater
 
-          HEADER
+          ### Docker Images
 
-          cat /tmp/changelog.md >> /tmp/release_body.md
-
-          cat >> /tmp/release_body.md << EOF
-
-          ---
-
-          ### Docker Tags
-
-          \`\`\`
+          \`\`\`bash
           docker pull neytor/cloudflare-ddns-updater:latest
           docker pull neytor/cloudflare-ddns-updater:${VERSION}
           \`\`\`
 
-          ### Arquitecturas soportadas
+          ### Supported Architectures
 
-          | Arquitectura | Plataforma |
+          | Architecture | Tag |
           |---|---|
-          | amd64 | Intel/AMD 64-bit |
-          | arm64 | Apple Silicon, RPi 4+ |
-          | armv7 | RPi 3, RPi 2 |
+          | linux/amd64 | \`latest\`, \`${VERSION}\` |
+          | linux/arm64 | \`latest\`, \`${VERSION}\` |
 
-          ### Uso rápido
+          ### Upstream Changelog
+
+          ${NOTES}
+
+          ### Quick Start
 
           \`\`\`bash
           docker run -d --name cloudflare-ddns neytor/cloudflare-ddns-updater:${VERSION}
           \`\`\`
-          EOF
+          NOTES
 
           gh release create "$TAG" \
+            --repo ${{ github.repository }} \
             --title "Release ${TAG} (Python ${VERSION})" \
-            --notes-file /tmp/release_body.md
+            --notes-file /tmp/release-notes.md
