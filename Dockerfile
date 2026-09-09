@@ -1,6 +1,10 @@
 # Usa la imagen base de Python 3.12 en Alpine
 FROM python:alpine
 
+# Evita el buffering de stdout/stderr para que los logs de docker logs
+# se muestren en tiempo real en vez de acumularse en el buffer interno
+ENV PYTHONUNBUFFERED=1
+
 # Crea usuario no-root antes de instalar dependencias
 RUN adduser -D -h /app appuser
 
