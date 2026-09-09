@@ -29,8 +29,7 @@ def get_dns_record_id(zone_id, record_name):
     log_message(f"Obteniendo ID del registro DNS para {record_name}...")
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records?name={record_name.strip()}"
     headers = {
-        'X-Auth-Email': CLOUDFLARE_EMAIL,
-        'X-Auth-Key': CLOUDFLARE_API_TOKEN,
+        'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
         'Content-Type': 'application/json'
     }
     response = requests.get(url, headers=headers)
@@ -49,8 +48,7 @@ def update_dns_record(zone_id, record_id, record_name, ip, proxied):
     log_message(f"Actualizando registro DNS {record_name} con IP {ip}...")
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{record_id}"
     headers = {
-        'X-Auth-Email': CLOUDFLARE_EMAIL,
-        'X-Auth-Key': CLOUDFLARE_API_TOKEN,
+        'Authorization': f'Bearer {CLOUDFLARE_API_TOKEN}',
         'Content-Type': 'application/json'
     }
     data = {
@@ -82,17 +80,21 @@ def main():
                 
                 for record_name in DNS_RECORD_NAMES:
                     record_name = record_name.strip()
-                    if record_name not in record_ids:
-                        record_ids[record_name] = get_dns_record_id(ZONE_ID, record_name)
-                    
-                    # Determinar si el proxy debe estar habilitado para el registro actual
-                    proxied = PROXY_ENABLED if record_name != 'vpn.yonier.com' else False
-                    
-                    result = update_dns_record(ZONE_ID, record_ids[record_name], record_name, new_ip, proxied=proxied)
-                    if result['success']:
-                        log_message(f"Actualización exitosa para {record_name}")
-                    else:
-                        log_message(f"Error en la actualización para {record_name}: {result['errors']}")
+                    try:
+                        if record_name not in record_ids:
+                            record_ids[record_name] = get_dns_record_id(ZONE_ID, record_name)
+                        
+                        # Determinar si el proxy debe estar habilitado para el registro actual
+                        proxied = PROXY_ENABLED if record_name != 'vpn.yonier.com' else False
+                        
+                        result = update_dns_record(ZONE_ID, record_ids[record_name], record_name, new_ip, proxied=proxied)
+                        if result['success']:
+                            log_message(f"Actualización exitosa para {record_name}")
+                        else:
+                            log_message(f"Error en la actualización para {record_name}: {result['errors']}")
+                    except Exception as e:
+                        log_message(f"Error procesando el registro {record_name}: {e}")
+                        continue
                 
                 current_ip = new_ip
             else:
