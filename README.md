@@ -42,12 +42,38 @@
 - Cuenta en Cloudflare
 - Token de API de Cloudflare con permisos para editar registros DNS
 
+## Cómo crear el token de API de Cloudflare
+
+Este proyecto se autentica usando un **API Token** de Cloudflare (no la Global API Key). Sigue estos pasos para crear uno con los permisos mínimos necesarios:
+
+1. Entra a [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens).
+2. Haz clic en **Create Token**.
+3. Elige la plantilla **Edit zone DNS** (o crea uno personalizado con **Custom token**).
+4. Configura los permisos exactamente así:
+
+   | Tipo | Recurso | Permiso |
+   |---|---|---|
+   | Zone | DNS | Edit |
+
+5. En **Zone Resources**, limita el token a la zona específica que vas a actualizar:
+   - `Include` → `Specific zone` → selecciona tu dominio (ej. `ejemplo.com`).
+   - Evita usar `All zones` salvo que realmente necesites actualizar registros en varias zonas.
+6. (Opcional pero recomendado) Restringe por IP de origen en **Client IP Address Filtering** si tu servidor tiene IP fija de salida, o déjalo sin restricción si tu IP pública cambia (es justamente el caso de un DDNS).
+7. Haz clic en **Continue to summary** → **Create Token**.
+8. Copia el token generado (empieza con un prefijo alfanumérico largo, ej. `cfut_...`). Cloudflare solo lo muestra una vez.
+
+Este es el valor que debes usar en `CLOUDFLARE_API_TOKEN`. El campo `CLOUDFLARE_EMAIL` es solo informativo para tus propios registros; la autenticación real la hace el token vía `Authorization: Bearer`.
+
+> **Importante:** no uses aquí la **Global API Key** (la clave antigua de "My Profile > API Tokens > Global API Key"). Esa clave usa un método de autenticación distinto (`X-Auth-Email` + `X-Auth-Key`) y no es compatible con el flujo de este proyecto. Si la usas, verás errores como `"No se encontró el registro DNS"` o `Authentication failed` en los logs aunque el registro exista.
+
+Para obtener el `ZONE_ID`, entra al dashboard de Cloudflare, selecciona tu dominio, y cópialo desde la barra lateral derecha en la sección **API** (Zone ID).
+
 ## Variables de entorno
 
 | Variable | Descripción | Default |
 |---|---|---|
 | `CLOUDFLARE_EMAIL` | Email de tu cuenta Cloudflare | — |
-| `CLOUDFLARE_API_TOKEN` | API Key o Token de Cloudflare | — |
+| `CLOUDFLARE_API_TOKEN` | API Token de Cloudflare (scoped, con permiso `Zone.DNS: Edit`) — **no** la Global API Key | — |
 | `ZONE_ID` | Zone ID del dominio en Cloudflare | — |
 | `DNS_RECORD_NAME` | Registros DNS separados por coma | — |
 | `SLEEP_INTERVAL` | Segundos entre verificaciones | `600` |
